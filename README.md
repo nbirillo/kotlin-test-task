@@ -1,3 +1,6 @@
+[![Gradle Build](https://github.com/nbirillo/kotlin-test-task/actions/workflows/gradle-build.yml/badge.svg)](https://github.com/nbirillo/kotlin-test-task/actions/workflows/gradle-build.yml)
+[![Gradle Build With Detekt](https://github.com/nbirillo/kotlin-test-task/actions/workflows/gradle-build-with-detekt.yml/badge.svg)](https://github.com/nbirillo/kotlin-test-task/actions/workflows/gradle-build-with-detekt.yml)
+
 # kotlin-test-task
 
 The test task consists of two parts: a game implementation and tests for it.
@@ -39,7 +42,7 @@ and open http://localhost:8080/. You will see the main page of the application.
 
 ## Tests
 
-You need to implement ___ test functions. 
+You need to implement several test functions. 
 Some of them you must implement by using the [Kotlin test framework](https://github.com/jetbrains-academy/kotlin-test-framework) 
 since it is actively used in the IDE Kotlin courses. Some of them should be implemented as common tests with JUnit5.
 
