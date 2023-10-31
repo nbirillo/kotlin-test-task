@@ -6,3 +6,6 @@ plugins {
     id("org.jetbrains.kotlin.jvm")
 }
 
+tasks.test {
+    useJUnitPlatform()
+}
