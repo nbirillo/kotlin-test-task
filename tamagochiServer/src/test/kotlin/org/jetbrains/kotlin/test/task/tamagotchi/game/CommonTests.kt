@@ -7,6 +7,8 @@ import org.jetbrains.kotlin.test.task.tamagotchi.models.Mode
 import org.jetbrains.kotlin.test.task.tamagotchi.testData.addCommandGameServiceMethod
 import org.jetbrains.kotlin.test.task.tamagotchi.testData.gameServiceClass
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.RepeatedTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -30,66 +32,98 @@ class CommonTests {
 
     @Test
     fun addCommandOverMaximumTest() {
+        abstractGameServiceTest(
+            List(2 * EXPECTED_MAX_CAPACITY) { Add(randomCommand()) },
+            List(EXPECTED_MAX_CAPACITY) { true } + List(EXPECTED_MAX_CAPACITY) { false }
+        )
+    }
+
+    @Test
+    fun checkImmutabilityGetAllCommandsTest() {
         val service = GameService()
-        val expected = ArrayDeque<Command>()
-        repeat(EXPECTED_MAX_CAPACITY) {
-            service.addCommand(randomCommand().also { expected.add(Command.valueOf(it)) })
+        repeat(5) {
+            service.addCommand(randomCommand())
         }
+        val commands = service.getAllCommands()
+        commands.removeFirst()
+        assertNotEquals(
+            service.getAllCommands(),
+            commands
+        ) { "Field `commands` cannot be changed by user, only by method `addCommand` and `getCommand`" }
     }
 
-    @ParameterizedTest
-    @MethodSource("validValueOfTestData")
-    fun validValueOfTest(command: Int, expected: Command) {
-        val actual = Command.valueOf(command)
-        assertEquals(expected, actual) { "Command.valueOf($command): expected: `$expected`, actual: $actual" }
+    @RepeatedTest(20)
+    fun getCommandTestMethodMixedRandomTest() {
+        val commandsStore = ArrayDeque(List(EXPECTED_MAX_CAPACITY) { randomCommand() })
+        val expectedGetAll = commandsStore.map { Command.values()[it] }
+        val addActions = commandsStore.map { Add(it) }
+        val getAction = List(EXPECTED_MAX_CAPACITY) { Get(Mode.values().random()) }
+        val expected = getAction.map {
+            when (it.mode) {
+                Mode.Queue -> commandsStore.removeFirst()
+                Mode.Stack -> commandsStore.removeLast()
+            }.let { command -> Command.values()[command] }
+        }
+        abstractGameServiceTest(
+            addActions + listOf(GetAll) + getAction,
+            List(addActions.size) { true } + listOf(expectedGetAll) + expected
+        )
     }
 
-    @ParameterizedTest
-    @MethodSource("invalidValueOfTestData")
-    fun invalidValueOfTest(command: Int) {
-        assertThrows<IllegalStateException>("\"The method `Command.valueOf` must throw an exception for command: `$command`") {
-            Command.valueOf(command)
-        }
+    @RepeatedTest(20)
+    fun getAllCommandsRandomTest() {
+        val addedCommands = List(EXPECTED_MAX_CAPACITY) { randomCommand() }
+        val actions = List(EXPECTED_MAX_CAPACITY) { listOf(Add(addedCommands[it]), GetAll) }.flatten()
+        val expected = List(EXPECTED_MAX_CAPACITY) {
+            listOf(
+                true,
+                addedCommands.subList(0, it + 1).map { command -> Command.values()[command] })
+        }.flatten()
+        abstractGameServiceTest(
+            actions + listOf(Add(addedCommands[randomCommand()]), GetAll),
+            expected + listOf(false, addedCommands.map { Command.values()[it] })
+        )
     }
 
     @ParameterizedTest
     @MethodSource("getCommandTestMethodTestQueueData", "getCommandTestMethodTestStackData")
     fun abstractGameServiceTest(actions: List<Action>, expected: List<Any?>) {
         val service = GameService()
-        val actual = ArrayList<Any?>()
-        for (action in actions) {
-            actual.add(
-                when (action) {
-                    is Add -> service.addCommand(action.command)
-                    is Get -> service.getCommand(action.mode)
-                    is GetAll -> service.getAllCommands()
-                }
-            )
-        }
+        val actual = actions.map { it.execute(service) }
         assertEquals(expected, actual) {
             beautifulErrorMessage(actions, expected, actual)
         }
     }
 
-    private fun beautifulErrorMessage(actions: List<Action>, expected: List<Any?>, actual: ArrayList<Any?>) =
+    private fun beautifulErrorMessage(actions: List<Action>, expected: List<Any?>, actual: List<Any?>) =
         "List of actions and results:\n" + actions.indices.joinToString("\n") {
             "${actions[it]} " + (
                     if (expected[it] == actual[it]) {
-                        "==> `${expected[it]}`"
+                        "==> `${expected[it]}`, as expected"
                     } else {
                         "!!==> expected: `${expected[it]}`, but actual: `${actual[it]}`"
                     })
         } + "\n"
 
-    sealed class Action
+    sealed class Action {
+        abstract fun execute(service: GameService): Any?
+    }
+
     data class Add(val command: Int) : Action() {
+        override fun execute(service: GameService) = service.addCommand(command)
+
         override fun toString(): String {
-            return "Add(${Command.valueOf(command)})"
+            return "Add(${Command.values()[command]})"
         }
     }
 
-    data class Get(val mode: Mode) : Action()
-    data object GetAll : Action()
+    data class Get(val mode: Mode) : Action() {
+        override fun execute(service: GameService) = service.getCommand(mode)
+    }
+
+    data object GetAll : Action() {
+        override fun execute(service: GameService) = service.getAllCommands()
+    }
 
     companion object {
         private const val EAT = 0
@@ -105,16 +139,6 @@ class CommonTests {
             ) as Boolean
 
         private fun randomCommand() = Random.nextInt(Command.values().size)
-
-        @JvmStatic
-        fun validValueOfTestData(): List<Arguments> =
-            List(Command.values().size) { index -> Arguments.of(index, Command.values()[index]) }
-
-        @JvmStatic
-        fun invalidValueOfTestData(): List<Arguments> =
-            listOf(-1, -10, Command.values().size + 1, Command.values().size + 1000)
-                .map { Arguments.of(it) }
-
 
         @JvmStatic
         val commandTestMethodTestQueueData = listOf(

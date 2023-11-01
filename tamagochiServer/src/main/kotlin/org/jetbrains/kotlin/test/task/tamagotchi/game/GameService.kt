@@ -23,7 +23,7 @@ class GameService {
         }
 
     fun addCommand(command: Int) =
-        if (commands.size <= MAX_CAPACITY) {
+        if (commands.size < MAX_CAPACITY) {
             commands.add(Command.valueOf(command))
             true
         } else {
